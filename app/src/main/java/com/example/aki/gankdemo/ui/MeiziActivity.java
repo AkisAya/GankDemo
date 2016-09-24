@@ -14,11 +14,11 @@ import android.support.v7.widget.Toolbar;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.widget.ImageView;
-import android.widget.Toast;
 
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.request.target.Target;
 import com.example.aki.gankdemo.R;
+import com.example.aki.gankdemo.util.NetworkUtils;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -95,43 +95,42 @@ public class MeiziActivity extends AppCompatActivity {
 
     public class DownloadPicture implements Runnable{
 
-
         @Override
         public void run() {
 
             Bitmap bitmap = null;
 
-//            try {
-//                bitmap = Glide.with(MeiziActivity.this)
-//                        .load(mImgUrl)
-//                        .asBitmap()
-//                        .into(Target.SIZE_ORIGINAL, Target.SIZE_ORIGINAL)
-//                        .get();             // cannot run on main thread
-//
-//
-//                if (bitmap != null) {
-//                    saveToFolder(bitmap);
-//                }
-//
-//
-//            } catch (InterruptedException e) {
-//                e.printStackTrace();
-//            } catch (ExecutionException e) {
-//                e.printStackTrace();
-//            }
-
             try {
-                byte[] bitmapBytes = getUrlBytes(mImgUrl);
-                bitmap = BitmapFactory.decodeByteArray(bitmapBytes, 0, bitmapBytes.length);
+                bitmap = Glide.with(MeiziActivity.this)
+                        .load(mImgUrl)
+                        .asBitmap()
+                        .into(Target.SIZE_ORIGINAL, Target.SIZE_ORIGINAL)
+                        .get();             // cannot run on main thread
+
 
                 if (bitmap != null) {
                     saveToFolder(bitmap);
                 }
 
 
-            } catch (IOException e) {
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            } catch (ExecutionException e) {
                 e.printStackTrace();
             }
+
+//            try {
+//                byte[] bitmapBytes = NetworkUtils.getUrlBytes(mImgUrl);
+//                bitmap = BitmapFactory.decodeByteArray(bitmapBytes, 0, bitmapBytes.length);
+//
+//                if (bitmap != null) {
+//                    saveToFolder(bitmap);
+//                }
+//
+//
+//            } catch (IOException e) {
+//                e.printStackTrace();
+//            }
         }
 
 
@@ -179,29 +178,6 @@ public class MeiziActivity extends AppCompatActivity {
                     Uri.fromFile(imgFile)));
         }
 
-        public byte[] getUrlBytes(String urlSpec) throws IOException {
-            URL url = new URL(urlSpec);
-            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-            connection.setRequestMethod("GET");
-
-            try{
-                ByteArrayOutputStream out = new ByteArrayOutputStream();
-                InputStream in  = connection.getInputStream();
-                if(connection.getResponseCode() != HttpURLConnection.HTTP_OK){
-                    throw new IOException(connection.getResponseMessage() + ": with" + urlSpec);
-                }
-
-                int length = 0;
-                byte[] buffer = new byte[1024];
-                while ((length = in.read(buffer)) > 0){
-                    out.write(buffer, 0, length);
-                }
-                out.close();
-                return out.toByteArray();
-            }finally {
-                connection.disconnect();
-            }
-        }
 
     }
 }

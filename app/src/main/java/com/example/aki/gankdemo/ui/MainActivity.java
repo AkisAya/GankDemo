@@ -1,10 +1,9 @@
 package com.example.aki.gankdemo.ui;
 
-import android.os.Handler;
+import android.os.Bundle;
 import android.support.design.widget.Snackbar;
 import android.support.v4.widget.SwipeRefreshLayout;
 import android.support.v7.app.AppCompatActivity;
-import android.os.Bundle;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.support.v7.widget.Toolbar;
@@ -14,14 +13,10 @@ import android.view.MenuItem;
 import android.view.View;
 import android.widget.Toast;
 
-import com.android.volley.RequestQueue;
-import com.android.volley.Response;
-import com.android.volley.VolleyError;
-import com.android.volley.toolbox.JsonObjectRequest;
-import com.android.volley.toolbox.Volley;
 import com.example.aki.gankdemo.R;
 import com.example.aki.gankdemo.adpter.MeiziAdpter;
 import com.example.aki.gankdemo.model.Meizi;
+import com.example.aki.gankdemo.util.NetworkUtils;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 
@@ -32,8 +27,6 @@ import org.json.JSONObject;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.List;
-
-import static android.icu.lang.UCharacter.GraphemeClusterBreak.L;
 
 public class MainActivity extends AppCompatActivity implements SwipeRefreshLayout.OnRefreshListener{
 
@@ -66,7 +59,16 @@ public class MainActivity extends AppCompatActivity implements SwipeRefreshLayou
         mGankContent = (RecyclerView) findViewById(R.id.recycler_view);
         mGankContent.setLayoutManager(new LinearLayoutManager(this));
 
-        loadData();
+        mSwipeRefreshLayout = (SwipeRefreshLayout) findViewById(R.id.swipe_refresh_layout);
+        // 刷新状态的颜色，每秒一种颜色
+        mSwipeRefreshLayout.setColorSchemeResources(R.color.blue, R.color.orange, R.color.green);
+        mSwipeRefreshLayout.setOnRefreshListener(this);
+
+
+        if (!isRefreshing) {
+            mSwipeRefreshLayout.setRefreshing(true);
+            loadData();
+        }
 
         mGankContent.addOnScrollListener(new RecyclerView.OnScrollListener() {
             @Override
@@ -84,32 +86,18 @@ public class MainActivity extends AppCompatActivity implements SwipeRefreshLayou
                 int last = layoutManager.findLastVisibleItemPosition();
                 int total = layoutManager.getItemCount();
 
+                Log.d("onScroll", "Last Position: " + last + " Total: " + total);
+
                 if (!isLoading && last + 2 >= total && total < LIMITPICS) {
                     loadMore();
+                } else if (last == total - 1) {
+                    Snackbar.make(mGankContent, "没有更多图了", Snackbar.LENGTH_SHORT).show();
                 }
 
             }
         });
 
-
-        mSwipeRefreshLayout = (SwipeRefreshLayout) findViewById(R.id.swipe_refresh_layout);
-        // 刷新状态的颜色，每秒一种颜色，循环知道刷新结束
-        mSwipeRefreshLayout.setColorSchemeResources(R.color.blue, R.color.orange, R.color.green);
-        mSwipeRefreshLayout.setOnRefreshListener(this);
-
     }
-
-//    @Override
-//    protected void onResume() {
-//        super.onResume();
-//        if (MeiziAdpter.getItemClickPosition() != RecyclerView.NO_POSITION) {
-//
-//            mGankContent.smoothScrollToPosition(MeiziAdpter.getItemClickPosition());
-//        }
-//
-//        Log.d("onResume", "onresume");
-//    }
-
 
 
     @Override
@@ -135,87 +123,81 @@ public class MainActivity extends AppCompatActivity implements SwipeRefreshLayou
         }
     }
 
-    private void test() {
-
-        new Handler().postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                mSwipeRefreshLayout.setRefreshing(false);
-
-            }
-        }, 3000);
-    }
+//    private void test() {
+//
+//        new Handler().postDelayed(new Runnable() {
+//            @Override
+//            public void run() {
+//                mSwipeRefreshLayout.setRefreshing(false);
+//
+//            }
+//        }, 3000);
+//    }
 
     private void loadData() {
         isRefreshing = true;
         String urlString = "http://gank.io/api/data/福利/10/1";
-        RequestQueue queue = Volley.newRequestQueue(this);
-        JsonObjectRequest jsonObjectRequest = new JsonObjectRequest(urlString, null, new Response.Listener<JSONObject>() {
+
+        NetworkUtils.FetchDataFromUrl(this, urlString, new NetworkUtils.DataCallbackListener() {
             @Override
             public void onResponse(JSONObject response) {
+
+                JSONArray jsonArray = null;
                 try {
-                    JSONArray jsonArray = response.getJSONArray("results");
-                    Gson gson = new Gson();
-                    Type type = new TypeToken<List<Meizi>>() {}.getType();
-                    mMeiziList = gson.fromJson(jsonArray.toString(), type);
-                    mGankContent.setAdapter(new MeiziAdpter(MainActivity.this, mMeiziList));
-
-                    isRefreshing = false;
-                    mSwipeRefreshLayout.setRefreshing(false);
-
-
+                    jsonArray = response.getJSONArray("results");
                 } catch (JSONException e) {
                     e.printStackTrace();
                 }
 
+                Gson gson = new Gson();
+                Type type = new TypeToken<List<Meizi>>() {}.getType();
+                mMeiziList = gson.fromJson(jsonArray.toString(), type);
+                mGankContent.setAdapter(new MeiziAdpter(MainActivity.this, mMeiziList));
 
+                isRefreshing = false;
+                mSwipeRefreshLayout.setRefreshing(false);
             }
-        }, new Response.ErrorListener() {
+
             @Override
-            public void onErrorResponse(VolleyError error) {
+            public void onError(Exception e) {
+                mSwipeRefreshLayout.setRefreshing(false);
                 Snackbar.make(mGankContent, "网络异常", Snackbar.LENGTH_SHORT).show();
             }
         });
 
-        queue.add(jsonObjectRequest);
     }
 
     private void loadMore() {
+        mSwipeRefreshLayout.setRefreshing(true);
         isLoading = true;
         mPage++;
         String urlString = "http://gank.io/api/data/福利/10/" + mPage;
 
-        RequestQueue queue = Volley.newRequestQueue(this);
-        JsonObjectRequest jsonObjectRequest = new JsonObjectRequest(urlString, null, new Response.Listener<JSONObject>() {
+        NetworkUtils.FetchDataFromUrl(this, urlString, new NetworkUtils.DataCallbackListener() {
             @Override
             public void onResponse(JSONObject response) {
+
+                JSONArray jsonArray = null;
                 try {
-                    JSONArray jsonArray = response.getJSONArray("results");
-                    Gson gson = new Gson();
-                    Type type = new TypeToken<List<Meizi>>() {}.getType();
-//                    int positionStart = mMeiziList.size();
-                    ArrayList<Meizi> newList = gson.fromJson(jsonArray.toString(), type);
-                    mMeiziList.addAll(newList);
-                    mGankContent.getAdapter().notifyDataSetChanged();
-
-                    isLoading = false;
-                    Toast.makeText(MainActivity.this, "Load More" + mMeiziList.size(), Toast.LENGTH_SHORT).show();
-
-
-
+                    jsonArray = response.getJSONArray("results");
                 } catch (JSONException e) {
                     e.printStackTrace();
                 }
-
-
+                Gson gson = new Gson();
+                Type type = new TypeToken<List<Meizi>>() {}.getType();
+//                    int positionStart = mMeiziList.size();
+                ArrayList<Meizi> newList = gson.fromJson(jsonArray.toString(), type);
+                mMeiziList.addAll(newList);
+                mGankContent.getAdapter().notifyDataSetChanged();
+                isLoading = false;
+                mSwipeRefreshLayout.setRefreshing(false);
+                Toast.makeText(MainActivity.this, "Load More " + mMeiziList.size(), Toast.LENGTH_SHORT).show();
             }
-        }, new Response.ErrorListener() {
+
             @Override
-            public void onErrorResponse(VolleyError error) {
+            public void onError(Exception e) {
                 Snackbar.make(mGankContent, "网络异常", Snackbar.LENGTH_SHORT).show();
             }
         });
-
-        queue.add(jsonObjectRequest);
     }
 }
