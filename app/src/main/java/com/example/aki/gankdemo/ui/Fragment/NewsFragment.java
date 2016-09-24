@@ -1,21 +1,21 @@
-package com.example.aki.gankdemo.ui;
+package com.example.aki.gankdemo.ui.Fragment;
 
 import android.os.Bundle;
+import android.support.annotation.Nullable;
 import android.support.design.widget.Snackbar;
+import android.support.v4.app.Fragment;
 import android.support.v4.widget.SwipeRefreshLayout;
-import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
-import android.support.v7.widget.Toolbar;
 import android.util.Log;
-import android.view.Menu;
-import android.view.MenuItem;
+import android.view.LayoutInflater;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.Toast;
 
 import com.example.aki.gankdemo.R;
-import com.example.aki.gankdemo.adpter.MeiziAdpter;
-import com.example.aki.gankdemo.model.Meizi;
+import com.example.aki.gankdemo.adpter.NewsAdapter;
+import com.example.aki.gankdemo.model.BaseData;
 import com.example.aki.gankdemo.util.NetworkUtils;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
@@ -28,42 +28,53 @@ import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.List;
 
-public class MainActivity extends AppCompatActivity implements SwipeRefreshLayout.OnRefreshListener{
+/**
+ * Created by Aki on 2016/9/24.
+ */
 
-    private Toolbar mToolbar;
-    private RecyclerView mGankContent; // only girls now
+public class NewsFragment extends Fragment implements SwipeRefreshLayout.OnRefreshListener {
+
+    private RecyclerView mGankContent;
     private SwipeRefreshLayout mSwipeRefreshLayout;
-    private List<Meizi> mMeiziList;
+    private List<BaseData> mNewsList;
     private int mPage = 1;
     private boolean isRefreshing = false;
     private boolean isLoading = false;
-    private final int LIMITPICS = 40;
+    private final int LIMITPICS = 60;
+
+    private String mType;
+
+    private static final String ARG_STR = "arg_str";
+
+
+    public static NewsFragment newInstance (String s) {
+        Bundle args = new Bundle();
+        args.putString(ARG_STR, s);
+        NewsFragment fragment = new NewsFragment();
+        fragment.setArguments(args);
+        return fragment;
+    }
 
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
+    public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
+        mType = getArguments().getString(ARG_STR);
+    }
 
-        mMeiziList = new ArrayList<>();
+    @Nullable
+    @Override
+    public View onCreateView(LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
 
-        mToolbar = (Toolbar) findViewById(R.id.toolbar);
-        setSupportActionBar(mToolbar);
-        mToolbar.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                mGankContent.smoothScrollToPosition(0);
-            }
-        });
+        View rootView = inflater.inflate(R.layout.fragment_base, container, false);
 
+        mNewsList = new ArrayList<>();
+        mGankContent = (RecyclerView) rootView.findViewById(R.id.recycler_view);
+        mGankContent.setLayoutManager(new LinearLayoutManager(getActivity()));
 
-        mGankContent = (RecyclerView) findViewById(R.id.recycler_view);
-        mGankContent.setLayoutManager(new LinearLayoutManager(this));
-
-        mSwipeRefreshLayout = (SwipeRefreshLayout) findViewById(R.id.swipe_refresh_layout);
+        mSwipeRefreshLayout = (SwipeRefreshLayout) rootView.findViewById(R.id.swipe_refresh_layout);
         // 刷新状态的颜色，每秒一种颜色
         mSwipeRefreshLayout.setColorSchemeResources(R.color.blue, R.color.orange, R.color.green);
         mSwipeRefreshLayout.setOnRefreshListener(this);
-
 
         if (!isRefreshing) {
             mSwipeRefreshLayout.setRefreshing(true);
@@ -91,29 +102,14 @@ public class MainActivity extends AppCompatActivity implements SwipeRefreshLayou
                 if (!isLoading && last + 2 >= total && total < LIMITPICS) {
                     loadMore();
                 } else if (last == total - 1) {
-                    Snackbar.make(mGankContent, "没有更多图了", Snackbar.LENGTH_SHORT).show();
+
                 }
 
             }
         });
 
-    }
+        return rootView;
 
-
-    @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
-        getMenuInflater().inflate(R.menu.menu_activity_main, menu);
-        return super.onCreateOptionsMenu(menu);
-    }
-
-    @Override
-    public boolean onOptionsItemSelected(MenuItem item) {
-        switch (item.getItemId()) {
-            case R.id.action_about:
-                Snackbar.make(mGankContent, "TODO", Snackbar.LENGTH_SHORT).show();
-                return true;
-        }
-        return super.onOptionsItemSelected(item);
     }
 
     @Override
@@ -123,22 +119,12 @@ public class MainActivity extends AppCompatActivity implements SwipeRefreshLayou
         }
     }
 
-//    private void test() {
-//
-//        new Handler().postDelayed(new Runnable() {
-//            @Override
-//            public void run() {
-//                mSwipeRefreshLayout.setRefreshing(false);
-//
-//            }
-//        }, 3000);
-//    }
-
     private void loadData() {
         isRefreshing = true;
-        String urlString = "http://gank.io/api/data/福利/10/1";
+        String urlString = "http://gank.io/api/data/" + mType + "/10/1";
+//        String urlString = "http://gank.io/api/data/福利/10/1";
 
-        NetworkUtils.FetchDataFromUrl(this, urlString, new NetworkUtils.DataCallbackListener() {
+        NetworkUtils.FetchDataFromUrl(getActivity(), urlString, new NetworkUtils.DataCallbackListener() {
             @Override
             public void onResponse(JSONObject response) {
 
@@ -150,9 +136,10 @@ public class MainActivity extends AppCompatActivity implements SwipeRefreshLayou
                 }
 
                 Gson gson = new Gson();
-                Type type = new TypeToken<List<Meizi>>() {}.getType();
-                mMeiziList = gson.fromJson(jsonArray.toString(), type);
-                mGankContent.setAdapter(new MeiziAdpter(MainActivity.this, mMeiziList));
+                Type type = new TypeToken<List<BaseData>>() {}.getType();
+                mNewsList = gson.fromJson(jsonArray.toString(), type);
+                Log.d("loadData", "Load + " + mNewsList.size());
+                mGankContent.setAdapter(new NewsAdapter(getActivity(), mNewsList));
 
                 isRefreshing = false;
                 mSwipeRefreshLayout.setRefreshing(false);
@@ -171,9 +158,9 @@ public class MainActivity extends AppCompatActivity implements SwipeRefreshLayou
         mSwipeRefreshLayout.setRefreshing(true);
         isLoading = true;
         mPage++;
-        String urlString = "http://gank.io/api/data/福利/10/" + mPage;
+        String urlString = "http://gank.io/api/data/" + mType + "/10/" + mPage;
 
-        NetworkUtils.FetchDataFromUrl(this, urlString, new NetworkUtils.DataCallbackListener() {
+        NetworkUtils.FetchDataFromUrl(getActivity(), urlString, new NetworkUtils.DataCallbackListener() {
             @Override
             public void onResponse(JSONObject response) {
 
@@ -184,14 +171,13 @@ public class MainActivity extends AppCompatActivity implements SwipeRefreshLayou
                     e.printStackTrace();
                 }
                 Gson gson = new Gson();
-                Type type = new TypeToken<List<Meizi>>() {}.getType();
+                Type type = new TypeToken<List<BaseData>>() {}.getType();
 //                    int positionStart = mMeiziList.size();
-                ArrayList<Meizi> newList = gson.fromJson(jsonArray.toString(), type);
-                mMeiziList.addAll(newList);
+                ArrayList<BaseData> newList = gson.fromJson(jsonArray.toString(), type);
+                mNewsList.addAll(newList);
                 mGankContent.getAdapter().notifyDataSetChanged();
                 isLoading = false;
                 mSwipeRefreshLayout.setRefreshing(false);
-                Toast.makeText(MainActivity.this, "Load More " + mMeiziList.size(), Toast.LENGTH_SHORT).show();
             }
 
             @Override
