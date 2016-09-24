@@ -4,9 +4,10 @@
 - RecyclerView 展示图片，下拉刷新和上拉加载
 - 点击图片加载大图
 - 图片下载保存
+- 增加Android IOS 信息流，改用ViewPager嵌套RecyclerView布局
+- 增加点击文字跳转
 
 ### TODO
-- ViewPager展示其他的信息流
 - 图片缓存到Disk
 - 过渡动画
 
